@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>物流计费规则编辑器</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <!-- XLSX库 -->
   <script src="assets/js/xlsx.full.min.js"></script>
   <!-- jQuery -->
@@ -496,8 +497,11 @@
           showAddSheetModal();
         }
 
-        // 初始化工具提示
-        $('[title]').tooltip();
+        // 初始化Bootstrap工具提示
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
 
         // 移除加载遮罩层
         const loadingOverlay = document.getElementById('loading-overlay');
