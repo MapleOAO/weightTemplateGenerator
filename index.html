@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>物流计费规则编辑器</title>
+  <!-- XLSX库 -->
+  <script src="assets/js/xlsx.full.min.js"></script>
+  <!-- jQuery -->
+  <script src="assets/js/jquery.min.js"></script>
+  <!-- Bootstrap CSS -->
+  <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="assets/css/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Select2 -->
+  <link href="assets/css/select2.min.css" rel="stylesheet">
+  <link href="assets/css/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+  <!-- Bootstrap JS -->
+  <script src="assets/js/bootstrap.bundle.min.js"></script>
+  <!-- Select2 -->
+  <script src="assets/js/select2.min.js"></script>
+  <script src="assets/js/zh-CN.min.js"></script>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f8f9fa;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      max-width: 1400px;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .range-row select, .range-row input {
+      width: 120px;
+    }
+    .preview {
+      font-size: 14px;
+      color: #6c757d;
+      margin: 8px 0;
+    }
+    .table {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    .table th {
+      background-color: #f8f9fa;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .btn-group-vertical {
+      gap: 4px;
+    }
+    .btn-sm {
+      padding: 0.25rem 0.5rem;
+      font-size: 12px;
+    }
+    .sheet-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .sheet-tab {
+      padding: 8px 16px;
+      background: #e9ecef;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      border: 1px solid #dee2e6;
+      border-bottom: none;
+      position: relative;
+      top: 1px;
+    }
+    .sheet-tab.active {
+      background: white;
+      border-bottom: 1px solid white;
+      color: #0d6efd;
+      font-weight: 500;
+    }
+    .sheet-tab .close-btn {
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .sheet-tab .close-btn:hover {
+      opacity: 1;
+    }
+    .quick-actions {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 1000;
+    }
+    .quick-actions .btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 25px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .tooltip-inner {
+      max-width: 300px;
+    }
+    .select2-container .select2-selection--single {
+      height: 38px;
+      padding: 5px;
+    }
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .shortcut-badge {
+      font-size: 10px;
+      padding: 2px 5px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 3px;
+      margin-left: 5px;
+    }
+    .form-floating label {
+      opacity: 0.7;
+    }
+    .form-floating input:focus + label {
+      opacity: 1;
+    }
+    .template-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 1000;
+      display: none;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 8px 0;
+    }
+    .template-item {
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .template-item:hover {
+      background: #f8f9fa;
+    }
+    .keyboard-shortcuts {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      font-size: 12px;
+      display: none;
+    }
+    .keyboard-shortcuts.show {
+      display: block;
+    }
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .shortcut-key {
+      background: #f8f9fa;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: 10px;
+    }
+    /* Select2 样式优化 */
+    .select2-container--bootstrap-5 {
+      width: 100% !important;
+    }
+    .select2-container--bootstrap-5 .select2-selection {
+      min-height: 38px;
+      padding: 0.375rem 0.75rem;
+      font-size: 1rem;
+      font-weight: 400;
+      line-height: 1.5;
+      border: 1px solid #dee2e6;
+      border-radius: 0.25rem;
+    }
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+      padding: 0;
+      line-height: 1.5;
+      color: #212529;
+    }
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__arrow {
+      height: 36px;
+    }
+    .select2-container--bootstrap-5 .select2-dropdown {
+      border-color: #dee2e6;
+      border-radius: 0.25rem;
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .select2-container--bootstrap-5 .select2-results__option--highlighted[aria-selected] {
+      background-color: #0d6efd;
+    }
+    .select2-container--bootstrap-5.select2-container--focus .select2-selection {
+      border-color: #86b7fe;
+      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .select2-container--bootstrap-5 .select2-search--dropdown .select2-search__field {
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #dee2e6;
+      border-radius: 0.25rem;
+    }
+    .select2-container--bootstrap-5 .select2-results__option {
+      padding: 0.375rem 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="mb-0">物流计费规则编辑器</h2>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="toggleShortcuts()">
+          <i class="bi bi-keyboard"></i> 快捷键
+        </button>
+        <button class="btn btn-primary" onclick="showAddSheetModal()">
+          <i class="bi bi-plus-lg"></i> 添加客户规则表
+        </button>
+      </div>
+    </div>
+
+    <div class="sheet-tabs" id="sheetTabs"></div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="form-group">
+              <label class="form-label">选择省份 <span class="shortcut-badge">Alt + P</span></label>
+              <select class="form-select select2" id="provinceSelect">
+                <option value="">请选择省份</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="form-group">
+              <label class="form-label">计费类型 <span class="shortcut-badge">Alt + T</span></label>
+              <select class="form-select" id="typeSelect">
+                <option value="F">F - 一口价</option>
+                <option value="S">S - 首重</option>
+                <option value="X">X - 续重</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-4" id="unitRow">
+            <div class="form-group">
+              <label class="form-label">计费单位（kg）<span class="shortcut-badge">Alt + U</span></label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="unitInput" step="0.01" oninput="limitDecimals(this,2)" placeholder="如 0.50 或 1.00">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" onclick="toggleTemplateDropdown(this)">
+                  常用
+                </button>
+                <div class="template-dropdown">
+                  <div class="template-item" onclick="setUnitTemplate(0.5)">0.50 kg</div>
+                  <div class="template-item" onclick="setUnitTemplate(1)">1.00 kg</div>
+                  <div class="template-item" onclick="setUnitTemplate(2)">2.00 kg</div>
+                  <div class="template-item" onclick="setUnitTemplate(5)">5.00 kg</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">范围选择（kg）<span class="shortcut-badge">Alt + R</span></label>
+          <div class="range-row">
+            <select class="form-select" id="op1" onchange="previewRange()">
+              <option value=""></option>
+              <option value=">">大于</option>
+              <option value=">=">大于等于</option>
+              <option value="=">等于</option>
+            </select>
+            <input type="number" class="form-control" step="0.01" id="val1" onchange="previewRange()">
+            <select class="form-select" id="op2" onchange="previewRange()">
+              <option value=""></option>
+              <option value="<">小于</option>
+              <option value="<=">小于等于</option>
+            </select>
+            <input type="number" class="form-control" step="0.01" id="val2" onchange="previewRange()">
+            <button class="btn btn-outline-secondary" onclick="clearRange()" title="清空范围">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <div class="preview" id="rangePreview">当前范围：通用</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">价格（元）<span class="shortcut-badge">Alt + M</span></label>
+          <div class="input-group">
+            <input type="number" class="form-control" step="0.01" id="priceInput">
+            <button class="btn btn-primary" onclick="addRule()">
+              <i class="bi bi-plus-lg"></i> 添加规则
+            </button>
+          </div>
+        </div>
+        <div class="text-danger small mt-2" id="errorText"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">规则预览表</h5>
+        <div class="btn-group">
+          <button class="btn btn-outline-primary" onclick="copyCurrentTable()">
+            <i class="bi bi-clipboard"></i> 复制表格
+          </button>
+          <button class="btn btn-success" onclick="exportToExcel()">
+            <i class="bi bi-file-excel"></i> 导出Excel
+          </button>
+        </div>
+      </div>
+      <div class="card-body table-container">
+        <div id="tableContainer" class="table-responsive"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加客户规则表模态框 -->
+  <div class="modal fade" id="addSheetModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">添加客户规则表</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-floating">
+            <input type="text" class="form-control" id="customerIdInput" placeholder="请输入客户编号">
+            <label>客户编号</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" onclick="addNewSheet()">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快捷操作按钮 -->
+  <div class="quick-actions">
+    <button class="btn btn-primary" onclick="addRule()" title="添加规则 (Enter)">
+      <i class="bi bi-plus-lg"></i>
+    </button>
+    <button class="btn btn-success" onclick="exportToExcel()" title="导出Excel (Ctrl + E)">
+      <i class="bi bi-file-excel"></i>
+    </button>
+    <button class="btn btn-info text-white" onclick="showAddSheetModal()" title="添加客户表 (Ctrl + N)">
+      <i class="bi bi-folder-plus"></i>
+    </button>
+  </div>
+
+  <!-- 键盘快捷键说明 -->
+  <div class="keyboard-shortcuts" id="keyboardShortcuts">
+    <h6 class="mb-3">键盘快捷键</h6>
+    <div class="shortcut-item">
+      <span>选择省份</span>
+      <span class="shortcut-key">Alt + P</span>
+    </div>
+    <div class="shortcut-item">
+      <span>计费类型</span>
+      <span class="shortcut-key">Alt + T</span>
+    </div>
+    <div class="shortcut-item">
+      <span>计费单位</span>
+      <span class="shortcut-key">Alt + U</span>
+    </div>
+    <div class="shortcut-item">
+      <span>范围选择</span>
+      <span class="shortcut-key">Alt + R</span>
+    </div>
+    <div class="shortcut-item">
+      <span>价格输入</span>
+      <span class="shortcut-key">Alt + M</span>
+    </div>
+    <div class="shortcut-item">
+      <span>添加规则</span>
+      <span class="shortcut-key">Enter</span>
+    </div>
+    <div class="shortcut-item">
+      <span>导出Excel</span>
+      <span class="shortcut-key">Ctrl + E</span>
+    </div>
+    <div class="shortcut-item">
+      <span>添加客户表</span>
+      <span class="shortcut-key">Ctrl + N</span>
+    </div>
+  </div>
+
+  <script>
+    const provinces = [
+      "北京市","天津市","上海市","重庆市","河北省","山西省","辽宁省","吉林省","黑龙江省",
+      "江苏省","浙江省","安徽省","福建省","江西省","山东省","河南省","湖北省","湖南省",
+      "广东省","海南省","四川省","贵州省","云南省","陕西省","甘肃省","青海省",
+      "内蒙古自治区","广西壮族自治区","西藏自治区","宁夏回族自治区","新疆维吾尔自治区",
+      "香港特别行政区","澳门特别行政区","台湾省"
+    ];
+
+    // 多sheet数据结构
+    let sheets = {};
+    let currentSheetId = null;
+    let addSheetModal = null;
+
+    // 初始化应用
+    function initializeApp() {
+      // 初始化Select2
+      $('.select2').select2({
+        theme: 'bootstrap-5',
+        language: 'zh-CN',
+        placeholder: '请选择省份',
+        allowClear: true,
+        width: '100%'
+      });
+
+      populateProvinceSelect();
+      previewRange();
+      toggleUnitRow();
+      setupEventListeners();
+      
+      // 初始化Bootstrap模态框
+      addSheetModal = new bootstrap.Modal(document.getElementById('addSheetModal'));
+      
+      // 如果没有sheet，自动显示添加sheet模态框
+      if (Object.keys(sheets).length === 0) {
+        showAddSheetModal();
+      }
+
+      // 初始化工具提示
+      $('[title]').tooltip();
+    }
+
+    // 设置事件监听器
+    function setupEventListeners() {
+      // 类型变化时更新UI
+      document.getElementById('typeSelect').addEventListener('change', toggleUnitRow);
+
+      // 键盘快捷键
+      document.addEventListener('keydown', function(e) {
+        // Alt + 快捷键
+        if (e.altKey) {
+          switch(e.key.toLowerCase()) {
+            case 'p': e.preventDefault(); $('#provinceSelect').select2('open'); break;
+            case 't': e.preventDefault(); document.getElementById('typeSelect').focus(); break;
+            case 'u': e.preventDefault(); document.getElementById('unitInput').focus(); break;
+            case 'r': e.preventDefault(); document.getElementById('op1').focus(); break;
+            case 'm': e.preventDefault(); document.getElementById('priceInput').focus(); break;
+          }
+        }
+        // Ctrl + 快捷键
+        if (e.ctrlKey) {
+          switch(e.key.toLowerCase()) {
+            case 'e': e.preventDefault(); exportToExcel(); break;
+            case 'n': e.preventDefault(); showAddSheetModal(); break;
+          }
+        }
+        // Enter键添加规则
+        if (e.key === 'Enter' && !e.ctrlKey && !e.altKey && 
+            !document.querySelector('.modal.show')) { // 模态框未显示时
+          e.preventDefault();
+          addRule();
+        }
+      });
+
+      // 点击空白处关闭模板下拉框
+      document.addEventListener('click', function(e) {
+        const dropdowns = document.querySelectorAll('.template-dropdown');
+        dropdowns.forEach(dropdown => {
+          if (!dropdown.contains(e.target) && 
+              !e.target.matches('.dropdown-toggle')) {
+            dropdown.style.display = 'none';
+          }
+        });
+      });
+
+      // 自动计算
+      document.getElementById('priceInput').addEventListener('wheel', function(e) {
+        e.preventDefault();
+        if (!this.value) return;
+        const delta = e.deltaY > 0 ? -0.01 : 0.01;
+        this.value = (parseFloat(this.value) + delta).toFixed(2);
+      });
+    }
+
+    function toggleShortcuts() {
+      const shortcuts = document.getElementById('keyboardShortcuts');
+      shortcuts.classList.toggle('show');
+    }
+
+    function toggleTemplateDropdown(btn) {
+      const dropdown = btn.nextElementSibling;
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function setUnitTemplate(value) {
+      document.getElementById('unitInput').value = value.toFixed(2);
+      document.querySelector('.template-dropdown').style.display = 'none';
+    }
+
+    function clearRange() {
+      document.getElementById('op1').value = '';
+      document.getElementById('val1').value = '';
+      document.getElementById('op2').value = '';
+      document.getElementById('val2').value = '';
+      previewRange();
+    }
+
+    function showAddSheetModal() {
+      document.getElementById('customerIdInput').value = '';
+      addSheetModal.show();
+      setTimeout(() => document.getElementById('customerIdInput').focus(), 500);
+    }
+
+    function addNewSheet() {
+      const customerId = document.getElementById('customerIdInput').value.trim();
+      if (!customerId) {
+        alert('请输入客户编号');
+        return;
+      }
+      if (sheets[customerId]) {
+        alert('该客户编号已存在');
+        return;
+      }
+
+      sheets[customerId] = {
+        dataMatrix: {},
+        allRuleKeys: new Set()
+      };
+      currentSheetId = customerId;
+      addSheetModal.hide();
+      renderSheetTabs();
+      renderTable();
+    }
+
+    function switchSheet(sheetId) {
+      currentSheetId = sheetId;
+      renderSheetTabs();
+      renderTable();
+    }
+
+    function deleteSheet(sheetId, event) {
+      event.stopPropagation();
+      if (!confirm(`确定要删除客户 ${sheetId} 的规则表吗？`)) return;
+      
+      delete sheets[sheetId];
+      if (currentSheetId === sheetId) {
+        currentSheetId = Object.keys(sheets)[0] || null;
+      }
+      renderSheetTabs();
+      renderTable();
+      
+      if (Object.keys(sheets).length === 0) {
+        showAddSheetModal();
+      }
+    }
+
+    function renderSheetTabs() {
+      const container = document.getElementById('sheetTabs');
+      container.innerHTML = '';
+      
+      Object.keys(sheets).forEach(sheetId => {
+        const tab = document.createElement('div');
+        tab.className = `sheet-tab${currentSheetId === sheetId ? ' active' : ''}`;
+        tab.innerHTML = `
+          <span onclick="switchSheet('${sheetId}')">${sheetId}</span>
+          <span class="close-btn" onclick="deleteSheet('${sheetId}', event)">×</span>
+        `;
+        container.appendChild(tab);
+      });
+    }
+
+    function getCurrentSheet() {
+      return currentSheetId ? sheets[currentSheetId] : null;
+    }
+
+    function populateProvinceSelect() {
+      const select = document.getElementById("provinceSelect");
+      provinces.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p;
+        opt.textContent = p;
+        select.appendChild(opt);
+      });
+    }
+
+    function validateRange() {
+      const op1 = document.getElementById("op1").value;
+      const v1 = parseFloat(document.getElementById("val1").value);
+      const op2 = document.getElementById("op2").value;
+      const v2 = parseFloat(document.getElementById("val2").value);
+
+      // 清空错误提示
+      document.getElementById("errorText").innerText = '';
+      
+      // 如果都没填，是合法的（通用规则）
+      if (!op1 && !op2) return true;
+
+      // 如果只填了一边，检查值是否有效
+      if ((op1 && !op2 && !isNaN(v1)) || (!op1 && op2 && !isNaN(v2))) return true;
+
+      // 如果填了两边，检查值的合理性
+      if (op1 && op2 && !isNaN(v1) && !isNaN(v2)) {
+        if (v1 >= v2) {
+          document.getElementById("errorText").innerText = '起始值必须小于结束值';
+          return false;
+        }
+        return true;
+      }
+
+      // 其他情况都是非法的
+      document.getElementById("errorText").innerText = '请完整填写范围值';
+      return false;
+    }
+
+    function previewRange() {
+      const op1 = document.getElementById("op1").value;
+      const v1 = document.getElementById("val1").value;
+      const op2 = document.getElementById("op2").value;
+      const v2 = document.getElementById("val2").value;
+
+      // 当选择了第一个操作符，自动聚焦到第一个值
+      if (op1 && !v1) {
+        document.getElementById("val1").focus();
+        return;
+      }
+
+      // 当填写了第一个值，清空第二组输入
+      if (op1 && v1) {
+        document.getElementById("op2").value = '';
+        document.getElementById("val2").value = '';
+      }
+
+      // 当选择了第二个操作符，自动聚焦到第二个值
+      if (op2 && !v2) {
+        document.getElementById("val2").focus();
+        return;
+      }
+
+      // 当填写了第二个值，清空第一组输入
+      if (op2 && v2) {
+        document.getElementById("op1").value = '';
+        document.getElementById("val1").value = '';
+      }
+
+      let txt = "";
+      if (op1 && v1) txt += `${op1==="="?"等于":op1===">="?"大于等于":"大于"} ${v1}kg`;
+      if (op2 && v2) txt += (txt?"，":"") + `${op2==="<="?"小于等于":"小于"} ${v2}kg`;
+      document.getElementById("rangePreview").innerText = "当前范围：" + (txt || "通用");
+
+      validateRange();
+    }
+
+    function buildRangeString() {
+      let r = "";
+      const op1 = document.getElementById("op1").value, v1 = document.getElementById("val1").value;
+      const op2 = document.getElementById("op2").value, v2 = document.getElementById("val2").value;
+      if (op1 && v1) r += op1 + v1;
+      if (op2 && v2) r += op2 + v2;
+      return r;
+    }
+
+    function limitDecimals(el, dec) {
+      if (!el.value.includes('.')) return;
+      let [i, d] = el.value.split('.');
+      if (d.length > dec) el.value = i + '.' + d.slice(0, dec);
+    }
+
+    function toggleUnitRow() {
+      document.getElementById('unitRow').style.display =
+        document.getElementById('typeSelect').value === 'F' ? 'none' : '';
+    }
+
+    function parseRuleKey(key) {
+      const [type, range, unit] = key.split(':');
+      const typeMap = { F: '一口价', S: '首重', X: '续重' };
+      let header = typeMap[type];
+      const details = [];
+
+      if (range) {
+        const segs = range.match(/([>=<]=?)([\d.]+)/g) || [];
+        segs.forEach(seg => {
+          const [, op, num] = seg.match(/([>=<]=?)([\d.]+)/);
+          let txt = '';
+          switch (op) {
+            case '=':  txt = `等于 ${num}kg`;        break;
+            case '>=': txt = `大于等于 ${num}kg`;    break;
+            case '>':  txt = `大于 ${num}kg`;         break;
+            case '<=': txt = `小于等于 ${num}kg`;    break;
+            case '<':  txt = `小于 ${num}kg`;         break;
+          }
+          details.push(txt);
+        });
+      }
+      if (unit) {
+        details.push(`单位 ${parseFloat(unit).toFixed(2)}kg`);
+      }
+      if (details.length) {
+        header += `<div class="small text-muted">${details.join('<br>')}</div>`;
+      }
+      return header;
+    }
+
+    function buildRuleKey(type, range, unit) {
+      return `${type}:${range}:` + (unit || '');
+    }
+
+    // 检查范围是否重叠
+    function checkRangeOverlap(range1, range2) {
+      // 解析范围字符串，返回 {op, value} 对象
+      function parseRange(range) {
+        if (!range) return null;
+        const matches = range.match(/([>=<]=?)(\d+\.?\d*)/g) || [];
+        return matches.map(m => {
+          const [, op, val] = m.match(/([>=<]=?)(\d+\.?\d*)/);
+          return { op, value: parseFloat(val) };
+        })[0];
+      }
+
+      // 如果任一范围为空（通用规则），则重叠
+      if (!range1 || !range2) return true;
+
+      const r1 = parseRange(range1);
+      const r2 = parseRange(range2);
+      
+      // 如果任一范围解析失败，返回不重叠
+      if (!r1 || !r2) return false;
+
+      // 检查范围重叠
+      switch (r1.op) {
+        case '>':
+          switch (r2.op) {
+            case '>': return true; // 都是大于，必然重叠
+            case '>=': return true;
+            case '=': return r2.value > r1.value;
+            case '<': return r2.value > r1.value;
+            case '<=': return r2.value > r1.value;
+          }
+          break;
+        case '>=':
+          switch (r2.op) {
+            case '>': return true;
+            case '>=': return true;
+            case '=': return r2.value >= r1.value;
+            case '<': return r2.value > r1.value;
+            case '<=': return r2.value > r1.value;
+          }
+          break;
+        case '=':
+          switch (r2.op) {
+            case '>': return r1.value > r2.value;
+            case '>=': return r1.value >= r2.value;
+            case '=': return r1.value === r2.value;
+            case '<': return r1.value < r2.value;
+            case '<=': return r1.value <= r2.value;
+          }
+          break;
+        case '<':
+          switch (r2.op) {
+            case '>': return r2.value < r1.value;
+            case '>=': return r2.value < r1.value;
+            case '=': return r2.value < r1.value;
+            case '<': return true;
+            case '<=': return true;
+          }
+          break;
+        case '<=':
+          switch (r2.op) {
+            case '>': return r2.value < r1.value;
+            case '>=': return r2.value < r1.value;
+            case '=': return r2.value <= r1.value;
+            case '<': return true;
+            case '<=': return true;
+          }
+          break;
+      }
+      return false;
+    }
+
+    function validateRangeOverlap(province, type, newRange) {
+      const sheet = getCurrentSheet();
+      if (!sheet || !sheet.dataMatrix[province]) return true;
+
+      // 获取该省份的所有规则
+      const existingRules = Object.keys(sheet.dataMatrix[province]);
+      
+      for (const ruleKey of existingRules) {
+        const [existingType, existingRange] = ruleKey.split(':');
+        
+        // 只检查相同类型的规则
+        if (existingType !== type) continue;
+        
+        // 检查范围是否重叠
+        if (checkRangeOverlap(newRange, existingRange)) {
+          const rangeText = existingRange ? 
+            parseRuleKey(ruleKey).replace(/<[^>]+>/g, '').replace(/一口价|首重|续重/, '') : 
+            '通用范围';
+          document.getElementById("errorText").innerText = 
+            `该范围与已有规则"${rangeText.trim()}"重叠，请调整范围`;
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function addRule() {
+      const sheet = getCurrentSheet();
+      if (!sheet) {
+        alert('请先添加客户规则表');
+        showAddSheetModal();
+        return;
+      }
+
+      const prov  = document.getElementById('provinceSelect').value;
+      const type  = document.getElementById('typeSelect').value;
+      const unit  = document.getElementById('unitInput').value;
+      const price = parseFloat(document.getElementById('priceInput').value);
+      const err   = document.getElementById('errorText');
+
+      if (!prov || isNaN(price)) {
+        return alert('请选择省份并输入价格');
+      }
+      if (type !== 'F' && (!unit || isNaN(parseFloat(unit)))) {
+        return alert('请输入单位，最多两位小数');
+      }
+      if (!validateRange()) {
+        return;
+      }
+
+      const range = buildRangeString();
+      
+      // 检查范围重叠
+      if (!validateRangeOverlap(prov, type, range)) {
+        return;
+      }
+
+      const key = buildRuleKey(type, range, type === 'F' ? '' : unit);
+      if (!sheet.dataMatrix[prov]) sheet.dataMatrix[prov] = {};
+      sheet.dataMatrix[prov][key] = price;
+      sheet.allRuleKeys.add(key);
+
+      // 清空输入并聚焦到省份选择
+      document.getElementById('priceInput').value = '';
+      document.getElementById('unitInput').value = '';
+      clearRange();
+      $('#provinceSelect').val(null).trigger('change');
+      $('#provinceSelect').select2('open');
+      
+      renderTable();
+    }
+
+    function pruneRuleKeys() {
+      const sheet = getCurrentSheet();
+      if (!sheet) return;
+      
+      sheet.allRuleKeys.forEach(k => {
+        if (!Object.values(sheet.dataMatrix).some(m => k in m)) {
+          sheet.allRuleKeys.delete(k);
+        }
+      });
+    }
+
+    function deleteProvince(p) {
+      const sheet = getCurrentSheet();
+      if (!sheet) return;
+      
+      delete sheet.dataMatrix[p];
+      pruneRuleKeys();
+      renderTable();
+    }
+
+    function deleteRuleKey(p, k) {
+      const sheet = getCurrentSheet();
+      if (!sheet) return;
+      
+      delete sheet.dataMatrix[p][k];
+      pruneRuleKeys();
+      renderTable();
+    }
+
+    function clearPrice(p, k) {
+      const sheet = getCurrentSheet();
+      if (!sheet) return;
+      
+      sheet.dataMatrix[p][k] = '';
+      renderTable();
+    }
+
+    function copyCurrentTable() {
+      const sheet = getCurrentSheet();
+      if (!sheet) return;
+
+      const rows = [];
+      // 添加表头
+      const keys = [...sheet.allRuleKeys].sort();
+      rows.push(['省份', ...keys]);
+      
+      // 添加数据行
+      Object.entries(sheet.dataMatrix).forEach(([p, m]) => {
+        const row = [p];
+        keys.forEach(k => row.push(m[k] !== undefined && m[k] !== '' ? m[k].toFixed(2) : ''));
+        rows.push(row);
+      });
+
+      // 转换为制表符分隔的文本
+      const text = rows.map(row => row.join('\t')).join('\n');
+      
+      // 复制到剪贴板
+      navigator.clipboard.writeText(text).then(() => {
+        alert('表格已复制到剪贴板');
+      }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制');
+      });
+    }
+
+    function renderTable() {
+      const sheet = getCurrentSheet();
+      if (!sheet) {
+        document.getElementById('tableContainer').innerHTML = 
+          '<div class="text-center text-muted py-4">请先添加客户规则表</div>';
+        return;
+      }
+
+      const cont = document.getElementById('tableContainer');
+      cont.innerHTML = '';
+      const tbl = document.createElement('table');
+      tbl.className = 'table table-bordered table-hover';
+      const thead = document.createElement('thead');
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = '<th>省份</th>'
+        + [...sheet.allRuleKeys].sort().map(k => `<th>${parseRuleKey(k)}</th>`).join('');
+      thead.appendChild(tr);
+      tbl.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      Object.entries(sheet.dataMatrix).forEach(([p, m]) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>
+            ${p}
+            <div class="btn-group-vertical w-100 mt-2">
+              <button class="btn btn-outline-danger btn-sm" onclick="deleteProvince('${p}')">
+                删除地区
+              </button>
+            </div>
+          </td>`
+          + [...sheet.allRuleKeys].sort().map(k => {
+              const v = m[k];
+              const hasValue = v !== undefined && v !== '';
+              return `
+                <td>
+                  ${hasValue ? `${v.toFixed(2)}元` : '<span class="text-muted">- 空 -</span>'}
+                  <div class="btn-group-vertical w-100 mt-2">
+                    ${hasValue ? `
+                      <button class="btn btn-outline-secondary btn-sm" onclick="clearPrice('${p}','${k}')">
+                        清空
+                      </button>
+                    ` : `
+                      <button class="btn btn-outline-primary btn-sm" onclick="editPrice('${p}','${k}')">
+                        设置
+                      </button>
+                    `}
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteRuleKey('${p}','${k}')">
+                      删除规则
+                    </button>
+                  </div>
+                </td>`;
+            }).join('');
+        tbody.appendChild(row);
+      });
+      tbl.appendChild(tbody);
+      cont.appendChild(tbl);
+    }
+
+    // 添加编辑价格的函数
+    function editPrice(province, ruleKey) {
+      const price = prompt('请输入价格（元）：');
+      if (price === null) return; // 用户点击取消
+      
+      const numPrice = parseFloat(price);
+      if (isNaN(numPrice)) {
+        alert('请输入有效的价格');
+        return;
+      }
+
+      const sheet = getCurrentSheet();
+      if (!sheet) return;
+
+      if (!sheet.dataMatrix[province]) sheet.dataMatrix[province] = {};
+      sheet.dataMatrix[province][ruleKey] = numPrice;
+      renderTable();
+    }
+
+    function exportToExcel() {
+      const wb = XLSX.utils.book_new();
+      
+      // 为每个sheet创建一个工作表
+      Object.entries(sheets).forEach(([sheetId, sheet]) => {
+        const keys = [...sheet.allRuleKeys].sort();
+        const rows = [['省份', ...keys]];
+        Object.entries(sheet.dataMatrix).forEach(([p, m]) => {
+          const row = [p];
+          keys.forEach(k => row.push(m[k] !== undefined && m[k] !== '' ? m[k] : ''));
+          rows.push(row);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, sheetId);
+      });
+      
+      XLSX.writeFile(wb, '物流计费规则.xlsx');
+    }
+
+    // 初始化应用
+    initializeApp();
+  </script>
+</body>
+</html>
