@@ -265,6 +265,45 @@
       from { opacity: 1; }
       to { opacity: 0; visibility: hidden; }
     }
+    /* 批量设置按钮样式 */
+    .batch-set-btn {
+      margin-left: 10px;
+    }
+    /* 选中的省份标签样式 */
+    .select2-selection__choice {
+      background-color: #e9ecef !important;
+      color: #212529 !important;
+      border: 1px solid #dee2e6 !important;
+    }
+    /* 区域选择按钮样式 */
+    .zone-buttons {
+      margin-top: 8px;
+    }
+
+    .zone-buttons .btn-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .zone-buttons .btn {
+      flex: 1;
+      font-size: 12px;
+      padding: 4px 8px;
+    }
+
+    .zone-buttons .btn-outline-primary:hover,
+    .zone-buttons .btn-outline-primary:focus,
+    .zone-buttons .btn-outline-primary:active {
+      background-color: #0d6efd;
+      color: white;
+    }
+
+    .zone-buttons .btn-outline-secondary:hover,
+    .zone-buttons .btn-outline-secondary:focus,
+    .zone-buttons .btn-outline-secondary:active {
+      background-color: #6c757d;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -297,7 +336,7 @@
           <div class="col-md-4">
             <div class="form-group">
               <label class="form-label">选择省份 <span class="shortcut-badge">Alt + P</span></label>
-              <select class="form-select select2" id="provinceSelect">
+              <select class="form-select select2" id="provinceSelect" multiple>
                 <option value="">请选择省份</option>
               </select>
             </div>
@@ -360,6 +399,9 @@
             <input type="number" class="form-control" step="0.01" id="priceInput">
             <button class="btn btn-primary" onclick="addRule()">
               <i class="bi bi-plus-lg"></i> 添加规则
+            </button>
+            <button class="btn btn-info text-white batch-set-btn" onclick="batchSetPrice()">
+              <i class="bi bi-lightning-fill"></i> 批量设置
             </button>
           </div>
         </div>
@@ -466,6 +508,21 @@
       "香港特别行政区","澳门特别行政区","台湾省"
     ];
 
+    // 添加区域预设定义
+    const zonePresets = {
+      zone1: ["上海市", "江苏省", "浙江省", "安徽省"],
+      zone2: [
+        "广西壮族自治区", "陕西省", "山西省", "四川省", "重庆市", "辽宁省", 
+        "贵州省", "吉林省", "黑龙江省", "云南省", "山东省", "广东省", 
+        "福建省", "北京市", "深圳市", "湖南省", "湖北省", "河南省", 
+        "河北省", "江西省", "天津市"
+      ],
+      zone3: [
+        "海南省", "宁夏回族自治区", "甘肃省", "青海省", 
+        "内蒙古自治区", "新疆维吾尔自治区", "西藏自治区"
+      ]
+    };
+
     // 多sheet数据结构
     let sheets = {};
     let currentSheetId = null;
@@ -473,16 +530,21 @@
 
     // 初始化应用
     function initializeApp() {
-      // 等待所有资源加载完成
       window.addEventListener('load', function() {
         // 初始化Select2
         $('.select2').select2({
           theme: 'bootstrap-5',
           language: 'zh-CN',
-          placeholder: '请选择省份',
+          placeholder: '请选择省份（可多选）',
           allowClear: true,
-          width: '100%'
+          width: '100%',
+          multiple: true,
+          closeOnSelect: false
         });
+
+        // 添加区域选择按钮
+        const provinceFormGroup = document.querySelector('#provinceSelect').closest('.form-group');
+        provinceFormGroup.appendChild(addZoneButtons());
 
         populateProvinceSelect();
         previewRange();
@@ -878,22 +940,22 @@
     }
 
     function addRule() {
-      const sheet = getCurrentSheet();
-      if (!sheet) {
-        alert('请先添加客户规则表');
-        showAddSheetModal();
-        return;
+      const selectedProvinces = $('#provinceSelect').val();
+      if (!selectedProvinces || selectedProvinces.length === 0) {
+        return alert('请选择省份');
       }
+      
+      const type = document.getElementById('typeSelect').value;
+      const unit = document.getElementById('unitInput').value;
+      const priceInput = document.getElementById('priceInput').value;
+      const price = priceInput ? parseFloat(priceInput) : '';
+      const err = document.getElementById('errorText');
 
-      const prov  = document.getElementById('provinceSelect').value;
-      const type  = document.getElementById('typeSelect').value;
-      const unit  = document.getElementById('unitInput').value;
-      const price = parseFloat(document.getElementById('priceInput').value);
-      const err   = document.getElementById('errorText');
-
-      if (!prov || isNaN(price)) {
-        return alert('请选择省份并输入价格');
+      // 如果输入了价格，则验证格式
+      if (priceInput && isNaN(price)) {
+        return alert('价格格式不正确');
       }
+      
       if (type !== 'F' && (!unit || isNaN(parseFloat(unit)))) {
         return alert('请输入单位，最多两位小数');
       }
@@ -904,16 +966,28 @@
       const range = buildRangeString();
       
       // 检查范围重叠
-      if (!validateRangeOverlap(prov, type, range)) {
+      for (const prov of selectedProvinces) {
+        if (!validateRangeOverlap(prov, type, range)) {
+          return;
+        }
+      }
+
+      const sheet = getCurrentSheet();
+      if (!sheet) {
+        alert('请先添加客户规则表');
+        showAddSheetModal();
         return;
       }
 
+      // 批量添加规则
       const key = buildRuleKey(type, range, type === 'F' ? '' : unit);
-      if (!sheet.dataMatrix[prov]) sheet.dataMatrix[prov] = {};
-      sheet.dataMatrix[prov][key] = price;
-      sheet.allRuleKeys.add(key);
+      selectedProvinces.forEach(prov => {
+        if (!sheet.dataMatrix[prov]) sheet.dataMatrix[prov] = {};
+        sheet.dataMatrix[prov][key] = price;
+        sheet.allRuleKeys.add(key);
+      });
 
-      // 清空输入并聚焦到省份选择
+      // 清空输入并刷新表格
       document.getElementById('priceInput').value = '';
       document.getElementById('unitInput').value = '';
       clearRange();
@@ -1025,7 +1099,7 @@
               const hasValue = v !== undefined && v !== '';
               return `
                 <td>
-                  ${hasValue ? `${v.toFixed(2)}元` : '<span class="text-muted">- 空 -</span>'}
+                  ${hasValue ? `${parseFloat(v).toFixed(2)}元` : '<span class="text-muted">- 空 -</span>'}
                   <div class="btn-group-vertical w-100 mt-2">
                     ${hasValue ? `
                       <button class="btn btn-outline-secondary btn-sm" onclick="clearPrice('${p}','${k}')">
@@ -1048,13 +1122,12 @@
       cont.appendChild(tbl);
     }
 
-    // 添加编辑价格的函数
     function editPrice(province, ruleKey) {
-      const price = prompt('请输入价格（元）：');
+      const price = prompt('请输入价格（元），留空表示不设置价格：');
       if (price === null) return; // 用户点击取消
       
-      const numPrice = parseFloat(price);
-      if (isNaN(numPrice)) {
+      const numPrice = price ? parseFloat(price) : '';
+      if (price && isNaN(numPrice)) {
         alert('请输入有效的价格');
         return;
       }
@@ -1084,6 +1157,90 @@
       });
       
       XLSX.writeFile(wb, '物流计费规则.xlsx');
+    }
+
+    function batchSetPrice() {
+      const selectedProvinces = $('#provinceSelect').val();
+      if (!selectedProvinces || selectedProvinces.length === 0) {
+        alert('请至少选择一个省份');
+        return;
+      }
+
+      const type = document.getElementById('typeSelect').value;
+      const unit = document.getElementById('unitInput').value;
+      const priceInput = document.getElementById('priceInput').value;
+      const price = priceInput ? parseFloat(priceInput) : '';
+      const err = document.getElementById('errorText');
+
+      // 如果输入了价格，则验证格式
+      if (priceInput && isNaN(price)) {
+        return alert('价格格式不正确');
+      }
+      
+      if (type !== 'F' && (!unit || isNaN(parseFloat(unit)))) {
+        return alert('请输入单位，最多两位小数');
+      }
+      if (!validateRange()) {
+        return;
+      }
+
+      const range = buildRangeString();
+      const sheet = getCurrentSheet();
+      if (!sheet) {
+        alert('请先添加客户规则表');
+        showAddSheetModal();
+        return;
+      }
+
+      // 检查所有选中省份的范围重叠
+      for (const prov of selectedProvinces) {
+        if (!validateRangeOverlap(prov, type, range)) {
+          return;
+        }
+      }
+
+      // 批量添加规则
+      const key = buildRuleKey(type, range, type === 'F' ? '' : unit);
+      selectedProvinces.forEach(prov => {
+        if (!sheet.dataMatrix[prov]) sheet.dataMatrix[prov] = {};
+        sheet.dataMatrix[prov][key] = price;
+        sheet.allRuleKeys.add(key);
+      });
+
+      // 清空输入并刷新表格
+      document.getElementById('priceInput').value = '';
+      document.getElementById('unitInput').value = '';
+      clearRange();
+      $('#provinceSelect').val(null).trigger('change');
+      $('#provinceSelect').select2('open');
+
+      renderTable();
+    }
+
+    // 在 provinces 数组定义后添加区域选择按钮的HTML
+    function addZoneButtons() {
+      const container = document.createElement('div');
+      container.className = 'zone-buttons mt-2';
+      container.innerHTML = `
+        <div class="btn-group w-100">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectZone('zone1')">一区</button>
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectZone('zone2')">二区</button>
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectZone('zone3')">三区</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearZoneSelection()">清空选择</button>
+        </div>
+      `;
+      return container;
+    }
+
+    // 添加区域选择函数
+    function selectZone(zoneKey) {
+      const provinces = zonePresets[zoneKey];
+      $('#provinceSelect').val(provinces).trigger('change');
+    }
+
+    // 添加清空选择函数
+    function clearZoneSelection() {
+      $('#provinceSelect').val(null).trigger('change');
     }
 
     // 初始化应用
