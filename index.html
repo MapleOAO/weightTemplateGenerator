@@ -368,6 +368,7 @@
               </div>
             </div>
           </div>
+
         </div>
 
         <div class="form-group mt-3">
@@ -528,6 +529,9 @@
     let currentSheetId = null;
     let addSheetModal = null;
 
+    // 特殊区域加收数据结构
+    let specialFees = {}; // {sheetId: {province: fee}}
+
     // 初始化应用
     function initializeApp() {
       window.addEventListener('load', function() {
@@ -589,6 +593,7 @@
             case 'u': e.preventDefault(); document.getElementById('unitInput').focus(); break;
             case 'r': e.preventDefault(); document.getElementById('op1').focus(); break;
             case 'm': e.preventDefault(); document.getElementById('priceInput').focus(); break;
+
           }
         }
         // Ctrl + 快捷键
@@ -671,6 +676,7 @@
         dataMatrix: {},
         allRuleKeys: new Set()
       };
+      specialFees[customerId] = {}; // 初始化特殊区域加收数据
       currentSheetId = customerId;
       addSheetModal.hide();
       renderSheetTabs();
@@ -688,6 +694,7 @@
       if (!confirm(`确定要删除客户 ${sheetId} 的规则表吗？`)) return;
       
       delete sheets[sheetId];
+      delete specialFees[sheetId]; // 删除对应的特殊区域加收数据
       if (currentSheetId === sheetId) {
         currentSheetId = Object.keys(sheets)[0] || null;
       }
@@ -843,14 +850,27 @@
 
     // 检查范围是否重叠
     function checkRangeOverlap(range1, range2) {
-      // 解析范围字符串，返回 {op, value} 对象
+      // 解析范围字符串，返回 {min, max} 对象
       function parseRange(range) {
         if (!range) return null;
         const matches = range.match(/([>=<]=?)(\d+\.?\d*)/g) || [];
-        return matches.map(m => {
+        let min = -Infinity;
+        let max = Infinity;
+        
+        matches.forEach(m => {
           const [, op, val] = m.match(/([>=<]=?)(\d+\.?\d*)/);
-          return { op, value: parseFloat(val) };
-        })[0];
+          const num = parseFloat(val);
+          
+          switch(op) {
+            case '>':  min = Math.max(min, num); break;
+            case '>=': min = Math.max(min, num); break;
+            case '<':  max = Math.min(max, num); break;
+            case '<=': max = Math.min(max, num); break;
+            case '=':  min = num; max = num; break;
+          }
+        });
+        
+        return { min, max };
       }
 
       // 如果任一范围为空（通用规则），则重叠
@@ -863,54 +883,10 @@
       if (!r1 || !r2) return false;
 
       // 检查范围重叠
-      switch (r1.op) {
-        case '>':
-          switch (r2.op) {
-            case '>': return true; // 都是大于，必然重叠
-            case '>=': return true;
-            case '=': return r2.value > r1.value;
-            case '<': return r2.value > r1.value;
-            case '<=': return r2.value > r1.value;
-          }
-          break;
-        case '>=':
-          switch (r2.op) {
-            case '>': return true;
-            case '>=': return true;
-            case '=': return r2.value >= r1.value;
-            case '<': return r2.value > r1.value;
-            case '<=': return r2.value > r1.value;
-          }
-          break;
-        case '=':
-          switch (r2.op) {
-            case '>': return r1.value > r2.value;
-            case '>=': return r1.value >= r2.value;
-            case '=': return r1.value === r2.value;
-            case '<': return r1.value < r2.value;
-            case '<=': return r1.value <= r2.value;
-          }
-          break;
-        case '<':
-          switch (r2.op) {
-            case '>': return r2.value < r1.value;
-            case '>=': return r2.value < r1.value;
-            case '=': return r2.value < r1.value;
-            case '<': return true;
-            case '<=': return true;
-          }
-          break;
-        case '<=':
-          switch (r2.op) {
-            case '>': return r2.value < r1.value;
-            case '>=': return r2.value < r1.value;
-            case '=': return r2.value <= r1.value;
-            case '<': return true;
-            case '<=': return true;
-          }
-          break;
-      }
-      return false;
+      // 如果一个范围的最小值大于另一个范围的最大值，则不重叠
+      if (r1.min >= r2.max || r2.min >= r1.max) return false;
+      
+      return true;
     }
 
     function validateRangeOverlap(province, type, newRange) {
@@ -949,12 +925,15 @@
       const unit = document.getElementById('unitInput').value;
       const priceInput = document.getElementById('priceInput').value;
       const price = priceInput ? parseFloat(priceInput) : '';
+
       const err = document.getElementById('errorText');
 
       // 如果输入了价格，则验证格式
       if (priceInput && isNaN(price)) {
         return alert('价格格式不正确');
       }
+      
+
       
       if (type !== 'F' && (!unit || isNaN(parseFloat(unit)))) {
         return alert('请输入单位，最多两位小数');
@@ -987,13 +966,14 @@
         sheet.allRuleKeys.add(key);
       });
 
-      // 清空输入并刷新表格
+      // 清空除省份外的其他输入
       document.getElementById('priceInput').value = '';
       document.getElementById('unitInput').value = '';
       clearRange();
-      $('#provinceSelect').val(null).trigger('change');
-      $('#provinceSelect').select2('open');
       
+      // 聚焦到价格输入框，方便继续输入
+      document.getElementById('priceInput').focus();
+
       renderTable();
     }
 
@@ -1013,6 +993,10 @@
       if (!sheet) return;
       
       delete sheet.dataMatrix[p];
+      // 同时删除特殊区域加收数据
+      if (specialFees[currentSheetId] && specialFees[currentSheetId][p] !== undefined) {
+        delete specialFees[currentSheetId][p];
+      }
       pruneRuleKeys();
       renderTable();
     }
@@ -1041,12 +1025,15 @@
       const rows = [];
       // 添加表头
       const keys = [...sheet.allRuleKeys].sort();
-      rows.push(['省份', ...keys]);
+      rows.push(['省份', ...keys, '特殊区域加收']);
       
       // 添加数据行
       Object.entries(sheet.dataMatrix).forEach(([p, m]) => {
         const row = [p];
         keys.forEach(k => row.push(m[k] !== undefined && m[k] !== '' ? m[k].toFixed(2) : ''));
+        // 添加特殊区域加收列
+        const specialFee = specialFees[currentSheetId] && specialFees[currentSheetId][p];
+        row.push(specialFee !== undefined && specialFee !== '' ? specialFee.toFixed(2) : '');
         rows.push(row);
       });
 
@@ -1078,13 +1065,24 @@
       const tr = document.createElement('tr');
 
       tr.innerHTML = '<th>省份</th>'
-        + [...sheet.allRuleKeys].sort().map(k => `<th>${parseRuleKey(k)}</th>`).join('');
+        + [...sheet.allRuleKeys].sort().map(k => `<th>${parseRuleKey(k)}</th>`).join('')
+        + '<th>特殊区域加收</th>';
       thead.appendChild(tr);
       tbl.appendChild(thead);
 
       const tbody = document.createElement('tbody');
-      Object.entries(sheet.dataMatrix).forEach(([p, m]) => {
+      // 获取所有省份（包括只有特殊区域加收的省份）
+      const allProvinces = new Set([...Object.keys(sheet.dataMatrix)]);
+      if (specialFees[currentSheetId]) {
+        Object.keys(specialFees[currentSheetId]).forEach(p => allProvinces.add(p));
+      }
+      
+      [...allProvinces].sort().forEach(p => {
+        const m = sheet.dataMatrix[p] || {};
         const row = document.createElement('tr');
+        const specialFee = specialFees[currentSheetId] && specialFees[currentSheetId][p];
+        const hasSpecialFee = specialFee !== undefined && specialFee !== '';
+        
         row.innerHTML = `
           <td>
             ${p}
@@ -1115,7 +1113,22 @@
                     </button>
                   </div>
                 </td>`;
-            }).join('');
+            }).join('')
+          + `
+            <td>
+              ${hasSpecialFee ? `${parseFloat(specialFee).toFixed(2)}元` : '<span class="text-muted">- 空 -</span>'}
+              <div class="btn-group-vertical w-100 mt-2">
+                ${hasSpecialFee ? `
+                  <button class="btn btn-outline-secondary btn-sm" onclick="clearSpecialFee('${p}')">
+                    清空
+                  </button>
+                ` : `
+                  <button class="btn btn-outline-primary btn-sm" onclick="editSpecialFee('${p}')">
+                    设置
+                  </button>
+                `}
+              </div>
+            </td>`;
         tbody.appendChild(row);
       });
       tbl.appendChild(tbody);
@@ -1140,16 +1153,45 @@
       renderTable();
     }
 
+    function editSpecialFee(province) {
+      const fee = prompt('请输入特殊区域加收费用（元），留空表示不设置：');
+      if (fee === null) return; // 用户点击取消
+      
+      const numFee = fee ? parseFloat(fee) : '';
+      if (fee && isNaN(numFee)) {
+        alert('请输入有效的费用');
+        return;
+      }
+
+      if (!specialFees[currentSheetId]) specialFees[currentSheetId] = {};
+      if (numFee !== '') {
+        specialFees[currentSheetId][province] = numFee;
+      } else {
+        delete specialFees[currentSheetId][province];
+      }
+      renderTable();
+    }
+
+    function clearSpecialFee(province) {
+      if (specialFees[currentSheetId] && specialFees[currentSheetId][province] !== undefined) {
+        delete specialFees[currentSheetId][province];
+        renderTable();
+      }
+    }
+
     function exportToExcel() {
       const wb = XLSX.utils.book_new();
       
       // 为每个sheet创建一个工作表
       Object.entries(sheets).forEach(([sheetId, sheet]) => {
         const keys = [...sheet.allRuleKeys].sort();
-        const rows = [['省份', ...keys]];
+        const rows = [['省份', ...keys, '特殊区域加收']];
         Object.entries(sheet.dataMatrix).forEach(([p, m]) => {
           const row = [p];
           keys.forEach(k => row.push(m[k] !== undefined && m[k] !== '' ? m[k] : ''));
+          // 添加特殊区域加收列
+          const specialFee = specialFees[sheetId] && specialFees[sheetId][p];
+          row.push(specialFee !== undefined && specialFee !== '' ? specialFee : '');
           rows.push(row);
         });
         const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -1207,12 +1249,13 @@
         sheet.allRuleKeys.add(key);
       });
 
-      // 清空输入并刷新表格
+      // 清空除省份外的其他输入
       document.getElementById('priceInput').value = '';
       document.getElementById('unitInput').value = '';
       clearRange();
-      $('#provinceSelect').val(null).trigger('change');
-      $('#provinceSelect').select2('open');
+      
+      // 聚焦到价格输入框，方便继续输入
+      document.getElementById('priceInput').focus();
 
       renderTable();
     }
